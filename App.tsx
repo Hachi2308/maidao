@@ -64,6 +64,7 @@ const processGreenScreen = (base64Data: string): Promise<string> => {
 };
 
 const DEFAULT_CONFIG: GenerationConfig = {
+    apiKey: '',
     model: 'gemini-2.5-flash-image', 
     prompt: '',
     style: 'realistic',
@@ -170,8 +171,20 @@ const App: React.FC = () => {
      checkApiKey();
   }, []);
 
+  // Update hasApiKey when config.apiKey changes
+  useEffect(() => {
+    if (config.apiKey && config.apiKey.length > 10) {
+        setHasApiKey(true);
+    }
+  }, [config.apiKey]);
+
   const checkApiKey = async () => {
     try {
+        if (config.apiKey && config.apiKey.length > 10) {
+            setHasApiKey(true);
+            return;
+        }
+
         const aiStudio = (window as any).aistudio;
         if (aiStudio) {
             const has = await aiStudio.hasSelectedApiKey();
@@ -186,6 +199,11 @@ const App: React.FC = () => {
   };
 
   const handleConnectKey = async () => {
+      if (config.apiKey && config.apiKey.length > 10) {
+          setHasApiKey(true);
+          return;
+      }
+
       setIsConnectingKey(true);
       const aiStudio = (window as any).aistudio;
       if (aiStudio) {
@@ -304,34 +322,33 @@ const App: React.FC = () => {
     referenceImage?: string,
     isEditing: boolean = false
   ): Promise<{ content: string; usedModel: string } | null> => {
-    const dummyModel = 'gemini-2.5-flash-image'; 
+    // Model selection is now handled inside geminiService based on config.model and resolution
     try {
       addLog(isEditing ? `Editing/Scaling...` : `Generating [${angle}]...`, 'info');
       
       const selectedPalette = allPalettes.find(p => p.id === config.selectedPaletteId) || null;
 
       const result = await generateSingleImage(
-          dummyModel, prompt, aspectRatio, angle, seed, background, style, resolution, referenceImage, isEditing, config.useBorder, selectedPalette
+          config.model, prompt, aspectRatio, angle, seed, background, style, resolution, config.apiKey, referenceImage, isEditing, config.useBorder, selectedPalette
       );
       
       if (result) {
         let finalUrl = result.url;
-        // Handle Transparency if legacy config or explicit request (though UI removed it)
-        if (background === 'green') {
-           // Only process if user implicitly wanted transparency (legacy support)
-           // But since user asked to remove "Transparent" option, we just treat green as green unless customized.
-           // However, let's keep green screen clean.
-        }
         return { content: finalUrl, usedModel: result.usedModel };
       }
     } catch (err: any) {
       const errorMsg = err.message || JSON.stringify(err);
       addLog(`Generation failed: ${errorMsg}`, 'error');
-      if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("403")) {
-          setHasApiKey(false);
-          setError("Permission denied. Select valid API Key.");
-          if ((window as any).aistudio) await (window as any).aistudio.openSelectKey();
-          setHasApiKey(true);
+      if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("403") || errorMsg.includes("No API Key provided")) {
+          // Only force logout if we aren't using a manual key, OR if the manual key itself is bad
+          if (!config.apiKey) {
+            setHasApiKey(false);
+            setError("Permission denied. Select valid API Key.");
+            if ((window as any).aistudio) await (window as any).aistudio.openSelectKey();
+            setHasApiKey(true);
+          } else {
+             setError("API Key Error. Check your manual key in settings.");
+          }
       }
     }
     return null;
@@ -343,7 +360,7 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    if (!hasApiKey) { await handleConnectKey(); return; }
+    if (!hasApiKey && !config.apiKey) { await handleConnectKey(); return; }
 
     setIsGenerating(true);
     stopGenerationRef.current = false;
@@ -353,21 +370,22 @@ const App: React.FC = () => {
     if (selectedIds.size > 0) {
         const targets = images.filter(img => selectedIds.has(img.id));
         const editPrompt = config.prompt.trim();
-        if (!editPrompt) { setError("Please enter a prompt."); setIsGenerating(false); return; }
+        // Allow upscale without prompt
+        if (!editPrompt && !activeTab) { /* Just passing through for structure */ }
 
         addLog(`Batch Edit: ${targets.length} images.`, 'info');
         const tasks = targets.map((targetImg) => async () => {
             if (stopGenerationRef.current) return;
             const seed = Math.floor(Math.random() * 1000000000);
             const result = await generateImageSafe(
-                editPrompt, config.aspectRatio, targetImg.angle, seed, config.background, config.style, targetImg.resolution, targetImg.url, true
+                editPrompt || targetImg.prompt, config.aspectRatio, targetImg.angle, seed, config.background, config.style, targetImg.resolution, targetImg.url, true
             );
             if (result) {
                 await addImage({
                     id: Math.random().toString(36).substring(7),
                     url: result.content,
                     angle: targetImg.angle,
-                    prompt: editPrompt,
+                    prompt: editPrompt || targetImg.prompt,
                     timestamp: Date.now(),
                     resolution: config.resolution
                 });
@@ -483,7 +501,7 @@ const App: React.FC = () => {
   };
 
   const handleEditImage = async (originalImage: GeneratedImage, newPrompt: string) => {
-      if (!hasApiKey) { await handleConnectKey(); return; }
+      if (!hasApiKey && !config.apiKey) { await handleConnectKey(); return; }
       setIsGenerating(true);
       try {
         const seed = Math.floor(Math.random() * 1000000000);
@@ -505,7 +523,7 @@ const App: React.FC = () => {
   };
 
   const handleBatchUpscale = async (targetResolution: Resolution) => {
-      if (!hasApiKey) { await handleConnectKey(); return; }
+      if (!hasApiKey && !config.apiKey) { await handleConnectKey(); return; }
       if (selectedIds.size === 0) return;
 
       setIsGenerating(true);
@@ -648,7 +666,7 @@ const App: React.FC = () => {
       <Header />
       <main className="max-w-[95%] mx-auto px-4 sm:px-6 lg:px-8 py-6 h-[calc(100vh-80px)] overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
-           <div className="lg:col-span-4 xl:col-span-3 h-full flex flex-col">
+           <div className="lg:col-span-4 xl:col-span-3 h-full flex flex-col min-h-0">
               <Controls 
                 config={config} setConfig={setConfig} onGenerate={handleGenerate} onStop={handleStop}
                 isGenerating={isGenerating} googleClientId={googleClientId} setGoogleClientId={setGoogleClientId}

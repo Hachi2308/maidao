@@ -1,5 +1,4 @@
 
-
 import { GoogleGenAI } from "@google/genai";
 import { AspectRatio, GeminiModel, BackgroundColor, ImageStyle, Resolution, ColorPalette } from '../types';
 
@@ -308,7 +307,7 @@ const constructPrompt = (
 };
 
 export const generateSingleImage = async (
-  _defaultModel: GeminiModel, 
+  model: GeminiModel, 
   prompt: string,
   aspectRatio: AspectRatio,
   angle: string,
@@ -316,13 +315,18 @@ export const generateSingleImage = async (
   background: BackgroundColor, 
   style: ImageStyle,
   resolution: Resolution,
+  apiKey: string, // NEW: Explicit API Key
   referenceImageBase64?: string,
   isEditing: boolean = false,
   useBorder: boolean = false,
   palette: ColorPalette | null = null
 ): Promise<{ url: string; usedModel: string } | null> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Priority: Manual Key -> Environment Variable -> Throw Error
+    const validApiKey = apiKey || process.env.API_KEY;
+    if (!validApiKey) throw new Error("No API Key provided.");
+
+    const ai = new GoogleGenAI({ apiKey: validApiKey });
     
     const fullPrompt = constructPrompt(prompt, angle, !!referenceImageBase64, background, style, isEditing, useBorder, palette);
 
@@ -340,7 +344,15 @@ export const generateSingleImage = async (
 
     parts.push({ text: fullPrompt });
 
-    let activeModel: string;
+    // Determine Model:
+    // If resolution demands high quality (2k/4k), we usually force gemini-3-pro-image-preview.
+    // However, if the user explicitly selected a model in settings, we should try to honor it,
+    // unless the task is physically impossible for the model (e.g., 2.5 Flash might not support 4K in future, but currently we map by resolution).
+    // For now, let's stick to the Resolution mapping for '2k'/'4k' as they imply specific upscaling models,
+    // but use the Manual Model for standard '1k' generation.
+    
+    let activeModel: string = model; // Default to manual selection
+
     let imageConfig: any = {
       aspectRatio: aspectRatio,
     };
@@ -352,7 +364,9 @@ export const generateSingleImage = async (
       activeModel = 'gemini-3-pro-image-preview';
       imageConfig.imageSize = '4K';
     } else {
-      activeModel = 'gemini-2.5-flash-image';
+        // Fallback or Manual Selection for 1K
+        // If the user hasn't touched the manual setting (it might be default), ensure we use a valid model.
+        if (!activeModel) activeModel = 'gemini-2.5-flash-image';
     }
 
     const response = await ai.models.generateContent({

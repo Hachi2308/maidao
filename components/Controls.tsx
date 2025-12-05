@@ -1,7 +1,6 @@
 
-
 import React, { useRef, useState } from 'react';
-import { AspectRatio, GenerationConfig, BackgroundColor, ImageStyle, Resolution, ColorPalette } from '../types';
+import { AspectRatio, GenerationConfig, BackgroundColor, ImageStyle, Resolution, ColorPalette, GeminiModel } from '../types';
 
 interface ControlsProps {
   config: GenerationConfig;
@@ -145,7 +144,40 @@ const Controls: React.FC<ControlsProps> = ({
         <div className="p-4 space-y-4">
             {/* ==================== SETTINGS TAB ==================== */}
             {controlTab === 'settings' && (
-                <div className="space-y-6 animate-fade-in">
+                <div className="space-y-6 animate-fade-in pb-20"> {/* pb-20 ensures space for scrolling past fixed footer if needed */}
+                    
+                    {/* API Configuration */}
+                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+                        <h3 className="text-white font-semibold mb-3 flex items-center">
+                            <svg className="w-5 h-5 mr-2 text-sony-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                            API Configuration (Manual)
+                        </h3>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1">API Key (Saved Locally)</label>
+                                <input
+                                    type="password"
+                                    value={config.apiKey || ''}
+                                    onChange={(e) => handleChange('apiKey', e.target.value)}
+                                    placeholder="Paste your Gemini API Key here..."
+                                    className="w-full bg-black border border-gray-700 rounded-lg p-2 text-white text-xs focus:border-sony-accent focus:ring-1 focus:ring-sony-accent outline-none"
+                                />
+                                <p className="text-[10px] text-gray-500 mt-1">Leave empty to use the system default or Connect button.</p>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1">Model Selection</label>
+                                <select
+                                    value={config.model}
+                                    onChange={(e) => handleChange('model', e.target.value as GeminiModel)}
+                                    className="w-full bg-black border border-gray-700 rounded-lg p-2 text-white text-xs focus:border-sony-accent outline-none"
+                                >
+                                    <option value="gemini-2.5-flash-image">Gemini 2.5 Flash (Fast/Standard)</option>
+                                    <option value="gemini-3-pro-image-preview">Gemini 3.0 Pro (High Quality/Upscale)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Color Palette Creator */}
                     <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800">
                         <h3 className="text-white font-semibold mb-3 flex items-center">
@@ -232,7 +264,7 @@ const Controls: React.FC<ControlsProps> = ({
 
             {/* ==================== STUDIO TAB ==================== */}
             {controlTab === 'studio' && (
-                <div className="space-y-4 animate-fade-in">
+                <div className="space-y-4 animate-fade-in pb-20">
                     {selectedCount > 0 ? (
                         <div className="space-y-2">
                              <div className="p-3 bg-orange-900/20 border border-orange-500/50 rounded-lg">

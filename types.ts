@@ -1,5 +1,4 @@
 
-
 export enum AspectRatio {
   SQUARE = '1:1',
   LANDSCAPE = '16:9',
@@ -34,6 +33,7 @@ export interface ColorPalette {
 }
 
 export interface GenerationConfig {
+  apiKey: string; // New: Manually entered API Key
   model: GeminiModel;
   prompt: string;
   style: ImageStyle;
@@ -47,5 +47,5 @@ export interface GenerationConfig {
   includeIsometric: boolean;
   batchCount: number;
   useBorder: boolean;
-  selectedPaletteId: string | null; // New: ID of selected palette
+  selectedPaletteId: string | null; 
 }
