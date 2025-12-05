@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GeneratedImage } from '../types';
 
@@ -22,7 +23,13 @@ const ImageModal: React.FC<ImageModalProps> = ({ image, onClose, onEdit, isGener
   const handleDownload = () => {
     const link = document.createElement('a');
     link.href = image.url;
-    link.download = `sony-macro-${image.resolution}-${image.angle.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.png`;
+    
+    // Logic: 6 words max, sanitize
+    const shortPrompt = image.prompt ? image.prompt.split(' ').slice(0, 6).join(' ') : 'sony-macro';
+    const slug = shortPrompt.replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '-').toLowerCase();
+    const safeAngle = image.angle.replace(/\s+/g, '-').toLowerCase();
+
+    link.download = `${slug}-${safeAngle}-${image.resolution}-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

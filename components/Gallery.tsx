@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GeneratedImage } from '../types';
 
@@ -34,7 +35,13 @@ const Gallery: React.FC<GalleryProps> = ({
     e.stopPropagation();
     const link = document.createElement('a');
     link.href = img.url;
-    link.download = `sony-macro-${img.resolution}-${img.angle.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.png`;
+    
+    // Logic: 6 words max, sanitize
+    const shortPrompt = img.prompt ? img.prompt.split(' ').slice(0, 6).join(' ') : 'sony-macro';
+    const slug = shortPrompt.replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '-').toLowerCase();
+    const safeAngle = img.angle.replace(/\s+/g, '-').toLowerCase();
+
+    link.download = `${slug}-${safeAngle}-${img.resolution}-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

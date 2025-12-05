@@ -26,6 +26,24 @@ const dataURItoBlob = (dataURI: string) => {
   return new Blob([ab], { type: mimeString });
 };
 
+// Helper: Create safe filename from prompt
+const getSafeFilename = (prompt: string, resolution: string, angle: string, id: string | number) => {
+    // Take first 6 words
+    const shortPrompt = prompt 
+        ? prompt.split(' ').slice(0, 6).join(' ')
+        : 'sony-macro';
+    
+    // Cleanup: remove special chars, lowercase, replace spaces with dashes
+    const slug = shortPrompt
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .toLowerCase();
+    
+    const safeAngle = angle.replace(/\s+/g, '-').toLowerCase();
+    return `${slug}-${safeAngle}-${resolution}-${id}.png`;
+};
+
 // Helper: Remove Green Background for transparency
 // IMPROVED ALGORITHM: Uses relative color difference to handle lighting variations
 const processGreenScreen = (base64Data: string): Promise<string> => {
@@ -575,7 +593,9 @@ const App: React.FC = () => {
         if (folder) {
             images.forEach((img, index) => {
                 const blob = dataURItoBlob(img.url);
-                folder.file(`sony-macro-${img.resolution}-${index}.png`, blob);
+                // Use safe prompt summary for filename
+                const fileName = getSafeFilename(img.prompt, img.resolution, img.angle, index);
+                folder.file(fileName, blob);
             });
             const content = await zip.generateAsync({ type: "blob" });
             const url = URL.createObjectURL(content);
@@ -611,8 +631,8 @@ const App: React.FC = () => {
       const folderId = await createDriveFolder(`Sony Macro AI - ${new Date().toLocaleString()}`, accessToken);
       let completed = 0;
       for (const img of images) {
-         const fileName = `sony-macro-${img.id}.png`;
-         await uploadFileToDrive(img.url, fileName, folderId, accessToken);
+         const safeName = getSafeFilename(img.prompt, img.resolution, img.angle, img.id);
+         await uploadFileToDrive(img.url, safeName, folderId, accessToken);
          completed++;
          setDriveStatus(`${completed}/${images.length}`);
       }
